@@ -19,10 +19,12 @@ app.get("/", (req, res) => {
 
 // Signup
 app.post("/signup", async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password, firstName, lastName} = req.body;
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true});
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true, 
+        user_metadata: {first_name: firstName,last_name: lastName}
+    });
     
     if (error) return res.status(400).json({ error: error.message });
     res.json({ user: data.user, message: "Signup successful" });
