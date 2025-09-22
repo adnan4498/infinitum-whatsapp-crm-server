@@ -1,9 +1,11 @@
 
 require("dotenv").config();
 const express = require("express");
+const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 // Supabase client with service_role key
@@ -19,14 +21,24 @@ app.get("/", (req, res) => {
 
 // Signup
 app.post("/signup", async (req, res) => {
+    console.log("Signup request received:", req.body);
     const { email, password, firstName, lastName} = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+    if (!email || !password) {
+        console.log("Missing email or password");
+        return res.status(400).json({ error: "Email and password required" });
+    }
 
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true, 
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({ email, password, email_confirm: true,
         user_metadata: {first_name: firstName,last_name: lastName}
     });
-    
-    if (error) return res.status(400).json({ error: error.message });
+
+    console.log("Supabase createUser result:", { data, error });
+
+    if (error) {
+        console.log("Signup error:", error.message);
+        return res.status(400).json({ error: error.message });
+    }
+    console.log("Signup successful for:", email);
     res.json({ user: data.user, message: "Signup successful" });
 });
 
@@ -53,7 +65,7 @@ app.get("/profile", async (req, res) => {
 });
 
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
