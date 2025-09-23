@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const { createClient } = require("@supabase/supabase-js");
-const Contacts = require("./models/Contacts");
+const Contact = require("./models/Contacts");
 
 // MongoDB connection
 mongoose
@@ -76,8 +76,8 @@ app.get("/profile", async (req, res) => {
 //Create Contact
 app.post("/contacts", async (req, res) => {
     try { 
-        const {userID, name, email, phone} = req.body;
-        const contact = new Contacts({userID, name, email, phone})
+        const {name, email, phone} = req.body;
+        const contact = new Contact({name, email, phone})
         await contact.save();
         res.status(201).json(contact);
     } catch (err) {
