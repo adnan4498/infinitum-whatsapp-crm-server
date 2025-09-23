@@ -1,8 +1,15 @@
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const mongoose = require("mongoose");
 const { createClient } = require("@supabase/supabase-js");
+const Contacts = require("./models/Contacts");
+
+// MongoDB connection
+mongoose
+    .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log("✅ MongoDB connected"))
+    .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 const app = express();
 app.use(cors());
@@ -48,7 +55,7 @@ app.post("/signin", async (req, res) => {
     if (!email || !password) return res.status(400).json({ error: "Email and password required" });
 
     const { data, error } = await supabaseAdmin.auth.signInWithPassword({ email, password });
-    
+
     if (error) return res.status(400).json({ error: error.message });
     res.json({ user: data.user, session: data.session });
 });
@@ -62,6 +69,67 @@ app.get("/profile", async (req, res) => {
     if (error) return res.status(403).json({ error: error.message });
 
     res.json({ message: "Protected route", user });
+});
+
+// --- CRUD ---
+
+//Create Contact
+app.post("/contacts", async (req, res) => {
+    try { 
+        const {userID, name, email, phone} = req.body;
+        const contact = new Contacts({userID, name, email, phone})
+        await contact.save();
+        res.status(201).json(contact);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+//Get All Contacts for a User
+app.get("/contacts/:userId", async (req, res) => {
+    try {
+        const contacts = await Contacts.find({ userId: req.params.userId });
+        res.json(contacts);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+//Get Single Contact
+app.get("/contact/:id", async (req, res) => {
+    try {
+        const contact = await Contacts.findById(req.params.id);
+        if (!contact) return res.status(404).json({ error: "Contact not found" });
+        res.json(contact);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+//Update Contact
+app.put("/contact/:id", async (req, res) => {
+    try {
+        const contact = await Contacts.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+        );
+        if (!contact) return res.status(404).json({ error: "Contact not found" });
+        res.json(contact);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+//Delete Contact
+app.delete("/contact/:id", async (req, res) => {
+    try {
+        const contact = await Contacts.findByIdAndDelete(req.params.id);
+        if (!contact) return res.status(404).json({ error: "Contact not found" });
+        res.json({ message: "Contact deleted" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 
