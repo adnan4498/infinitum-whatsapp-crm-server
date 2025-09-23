@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const { createClient } = require("@supabase/supabase-js");
-const Contact = require("./models/Contacts");
+const contact = require("./models/contact");
 
 // MongoDB connection
 mongoose
@@ -74,47 +74,35 @@ app.get("/profile", async (req, res) => {
 // --- CRUD ---
 
 //Create Contact
-app.post("/contacts", async (req, res) => {
+app.post("/contact", async (req, res) => {
     try { 
         const {name, email, phone} = req.body;
-        const contact = new Contact({name, email, phone})
-        await contact.save();
+        const newContact = new contact({name, email, phone})
+        await newContact.save();
         res.status(201).json(contact);
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
 });
 
-//Get All Contacts for a User
-app.get("/contacts/:userId", async (req, res) => {
-    try {
-        const contacts = await Contacts.find({ userId: req.params.userId });
-        res.json(contacts);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 //Get Single Contact
-app.get("/contact/:id", async (req, res) => {
+app.get("/contact/:name", async (req, res) => {
     try {
-        const contact = await Contacts.findById(req.params.id);
-        if (!contact) return res.status(404).json({ error: "Contact not found" });
-        res.json(contact);
+        const findContact = await contact.findOne({ name: req.params.name });
+        if (!findContact) return res.status(404).json({ error: "Contact not found" });
+        res.json(findContact);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
 //Update Contact
-app.put("/contact/:id", async (req, res) => {
+app.put("/contact/:name", async (req, res) => {
     try {
-        const contact = await Contacts.findByIdAndUpdate(
-            req.params.id,
+        const updateContact = await contact.findOneAndUpdate({ name: req.params.name }, 
             req.body,
-            { new: true, runValidators: true }
-        );
-        if (!contact) return res.status(404).json({ error: "Contact not found" });
+            { new: true, runValidators: true });
+        if (!updateContact) return res.status(404).json({ error: "Contact not found" });
         res.json(contact);
     } catch (err) {
         res.status(400).json({ error: err.message });
@@ -122,11 +110,11 @@ app.put("/contact/:id", async (req, res) => {
 });
 
 //Delete Contact
-app.delete("/contact/:id", async (req, res) => {
+app.delete("/contact/:name", async (req, res) => {
     try {
-        const contact = await Contacts.findByIdAndDelete(req.params.id);
-        if (!contact) return res.status(404).json({ error: "Contact not found" });
-        res.json({ message: "Contact deleted" });
+        const delContact = await contact.findOneAndDelete({ name: req.params.name });
+        if (!delContact) return res.status(404).json({ error: "Contact not found" });
+        res.json({ message: `Contact '${req.params.name}' deleted successfully` });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
