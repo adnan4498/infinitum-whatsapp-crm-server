@@ -4,6 +4,9 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const { createClient } = require("@supabase/supabase-js");
 const contact = require("./models/contact");
+const multer = require("multer");
+const csv = require("csv-parser");
+const fs = require("fs");
 
 // MongoDB connection
 mongoose
@@ -24,6 +27,10 @@ const supabaseAdmin = createClient(
 app.get("/", (req, res) => {
     res.send("server is running");
 });
+
+// Setup multer for file upload
+const upload = multer({ dest: "uploads/" });
+
 
 
 // Signup
@@ -79,7 +86,7 @@ app.post("/contact", async (req, res) => {
         const {name, email, phone} = req.body;
         const newContact = new contact({name, email, phone})
         await newContact.save();
-        res.status(201).json(contact);
+        res.status(201).json(newContact);
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
@@ -103,7 +110,7 @@ app.put("/contact/:name", async (req, res) => {
             req.body,
             { new: true, runValidators: true });
         if (!updateContact) return res.status(404).json({ error: "Contact not found" });
-        res.json(contact);
+        res.json(updateContact);
     } catch (err) {
         res.status(400).json({ error: err.message });
     }
@@ -117,6 +124,30 @@ app.delete("/contact/:name", async (req, res) => {
         res.json({ message: `Contact '${req.params.name}' deleted successfully` });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+//CSV file processing
+app.post("/upload-csv", upload.single("file"), async (req, res) => {
+    try {
+        const results = [];
+
+        fs.createReadStream(req.file.path)
+        .pipe(csv())
+        .on("data", (data) => results.push(data))
+        .on("end", async () => {
+            try {
+                //inserting all contacts into mongodb
+                await contact.insertMany(results);
+                //delete file after extracting data
+                fs.unlinkSync(req.file.path);
+                res.json({ message: "Contacts uploaded successfully!", count: results.length });
+            } catch (err) {
+            res.status(500).json({ error: err.message });
+            }
+        });
+    }catch (error) {
+        res.status(500).json({ error: error.message });
     }
 });
 
