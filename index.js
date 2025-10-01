@@ -4,6 +4,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const { createClient } = require("@supabase/supabase-js");
 const contact = require("./models/contact");
+const template = require("./models/template");
 const multer = require("multer");
 const csv = require("csv-parser");
 const fs = require("fs");
@@ -78,7 +79,7 @@ app.get("/profile", async (req, res) => {
     res.json({ message: "Protected route", user });
 });
 
-// --- CRUD ---
+// --- CRUD for Contact ---
 
 //Create Contact
 app.post("/contact", async (req, res) => {
@@ -127,7 +128,7 @@ app.delete("/contact/:name", async (req, res) => {
     }
 });
 
-//CSV file processing
+//Contacts.CSV file upload/processing
 app.post("/upload-csv", upload.single("file"), async (req, res) => {
     try {
         const results = [];
@@ -148,6 +149,55 @@ app.post("/upload-csv", upload.single("file"), async (req, res) => {
         });
     }catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// --- CRUD for Template ---
+
+//Create Template
+app.post("/template", async (req, res) => {
+    try{
+        const {category, templateName, language, message} = req.body;
+        const newTemplate = new template({category, templateName, language, message});
+        await newTemplate.save();
+        res.status(201).json(newTemplate);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Get Single Template by Template Name
+app.get("/template/:templateName", async (req, res) => {
+    try {
+        const findTemplate = await template.findOne( { templateName: req.params.templateName});
+        if (!findTemplate) return res.status(404).json({ error: "Template not found" });
+        res.json(findTemplate);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update Template by Template Name
+app.put("/template/:templateName", async (req, res) => {
+    try {
+        const updateTemplate = await template.findOneAndUpdate({ templateName: req.params.templateName },
+            req.body,
+            { new: true, runValidators: true });
+        if (!updateTemplate) return res.status(404).json({ error: "Template not found" });
+        res.json(updateTemplate);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Delete Template by Template Name
+app.delete("/template/:templateName", async (req, res) => {
+    try {
+        const delTemplate = await template.findOneAndDelete({ templateName: req.params.templateName });
+        if (!delTemplate) return res.status(404).json({ error: "Template not found" });
+        res.json({ message: `Template '${delTemplate.templateName}' deleted successfully` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
