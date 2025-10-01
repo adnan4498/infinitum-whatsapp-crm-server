@@ -169,7 +169,9 @@ app.post("/template", async (req, res) => {
 // Get Single Template by Template Name
 app.get("/template/:templateName", async (req, res) => {
     try {
-        const findTemplate = await template.findOne( { templateName: req.params.templateName});
+        const findTemplate = await template.findOne( { 
+            templateName: { $regex: new RegExp(`^${req.params.templateName}$`, "i") }
+        });
         if (!findTemplate) return res.status(404).json({ error: "Template not found" });
         res.json(findTemplate);
     } catch (err) {
@@ -180,7 +182,9 @@ app.get("/template/:templateName", async (req, res) => {
 // Update Template by Template Name
 app.put("/template/:templateName", async (req, res) => {
     try {
-        const updateTemplate = await template.findOneAndUpdate({ templateName: req.params.templateName },
+        const updateTemplate = await template.findOneAndUpdate({ 
+            templateName: { $regex: new RegExp(`^${req.params.templateName}$`, "i") }
+        },
             req.body,
             { new: true, runValidators: true });
         if (!updateTemplate) return res.status(404).json({ error: "Template not found" });
@@ -193,7 +197,9 @@ app.put("/template/:templateName", async (req, res) => {
 // Delete Template by Template Name
 app.delete("/template/:templateName", async (req, res) => {
     try {
-        const delTemplate = await template.findOneAndDelete({ templateName: req.params.templateName });
+        const delTemplate = await template.findOneAndDelete({ 
+            templateName: { $regex: new RegExp(`^${req.params.templateName}$`, "i") }
+        });
         if (!delTemplate) return res.status(404).json({ error: "Template not found" });
         res.json({ message: `Template '${delTemplate.templateName}' deleted successfully` });
     } catch (err) {
