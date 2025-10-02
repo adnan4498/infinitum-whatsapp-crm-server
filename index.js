@@ -1,10 +1,17 @@
 require("dotenv").config();
+const http = require("http");
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const { createClient } = require("@supabase/supabase-js");
+const { Server } = require("socket.io");
+const { createAdapter } = require( "@socket.io/redis-adapter");
+const IORedis = require("ioredis");
+
 const contact = require("./models/contact");
 const template = require("./models/template");
+const message = require("./models/message");
+const conversation = require("./models/conversation");
 const multer = require("multer");
 const csv = require("csv-parser");
 const fs = require("fs");
@@ -16,6 +23,8 @@ mongoose
     .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
 app.use(cors());
 app.use(express.json());
 
@@ -32,6 +41,10 @@ app.get("/", (req, res) => {
 // Setup multer for file upload
 const upload = multer({ dest: "uploads/" });
 
+// Redis adapter for horizontal scaling
+const pubClient = new IORedis(process.env.REDIS_URL);
+const subClient = pubClient.duplicate();
+io.adapter(createAdapter(pubClient, subClient));
 
 
 // Signup
@@ -207,8 +220,66 @@ app.delete("/template/:templateName", async (req, res) => {
     }
 });
 
+// Socket authentication 
+io.use( async (socket, next) => {
+    try{
+        const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.split(' ')[1];
+        if (!token) return next(new Error("No Token"));
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+        //validate token with Supabase
+        const {data, error} = await supabaseAdmin.auth.getUser(token);
+        if (error || !data?.user) return next (new Error("Invalid token")); //reject if invalid
+
+        socket.user = data.user; //attach user info to socket 
+        return next(); //allow connection 
+    } catch (e) {
+        return next(new Error("Authentication error"));
+    }
 });
+
+io.on("connection", (socket) => {
+    const userID = socket.user.id;
+    console.log("Socket connected for user", userID);
+
+    socket.on("join", async ({ conversationID}) => {
+        socket.join(conversationID);
+    });
+
+    socket.on("message:send", async (payload, ack) => {
+        try{
+            const msg = new message({
+                conversationID: payload.conversationID,
+                sender: userID,
+                body: payload.body,
+                attachments: payload.attachments || []
+            });
+            await msg.save();
+
+            //update conversation last message
+            await conversation.findByIdAndUpdate(payload.conversationID, { lastMessage: payload.body, lastActivityAt: new Date() });
+            //braodcast to room 
+            io.to(payload.conversationID).emit("message:new", msg);
+            //send ack back to sender
+            if (ack) ack({ ok: true, id: msg._id });
+        } catch (err) {
+            if (ack) ack({ ok: false, error: err.message });
+        }
+    });
+
+    socket.on("typing", ({ conversationID, isTyping }) => {
+        socket.to(conversationID).emit("typing", { userID, conversationID, isTyping });
+    });
+
+    socket.on("disconnect", () => {
+        //broadcast offline 
+    });
+});
+
+
+server.listen(process.env.PORT || 3001, () => {
+    console.log(`Server running at http://localhost:${process.env.PORT || 3001}`);
+});
+
+//const PORT = process.env.PORT || 3001;
+//app.listen(PORT, () => {
+//    console.log(`Server running at http://localhost:${PORT}`);
