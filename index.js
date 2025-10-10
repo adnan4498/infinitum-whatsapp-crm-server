@@ -31,7 +31,9 @@ app.get("/", (req, res) => {
 // Setup multer for file upload
 const upload = multer({ dest: "uploads/" });
 
-
+//==============
+// AUTH CRUD
+//==============
 
 // Signup
 app.post("/signup", async (req, res) => {
@@ -78,7 +80,9 @@ app.get("/profile", async (req, res) => {
     res.json({ message: "Protected route", user });
 });
 
-// --- CRUD ---
+//==============
+// CONTACT CRUD
+//==============
 
 //Create Contact
 app.post("/contact", async (req, res) => {
@@ -150,6 +154,8 @@ app.post("/upload-csv", upload.single("file"), async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+
 
 
 const PORT = process.env.PORT || 3001;
